@@ -371,6 +371,58 @@ public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], b
     }
 
     @Override
+    public void put2(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws PersistenceFailureException {
+
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
+        StoreUtils.assertValidKey(key);
+        DatabaseEntry keyEntry = new DatabaseEntry(key.get());
+        DatabaseEntry valueEntry = new DatabaseEntry();
+
+        boolean succeeded = false;
+        Transaction transaction = null;
+        List<Versioned<byte[]>> vals = null;
+
+        try {
+            transaction = environment.beginTransaction(null, null);
+
+            // do a get for the existing values
+            OperationStatus status = null;
+
+            vals = new ArrayList<Versioned<byte[]>>(1);
+            // update the new value
+            vals.add(value);
+
+            valueEntry.setData(StoreBinaryFormat.toByteArray(vals));
+            status = getBdbDatabase().put(transaction, keyEntry, valueEntry);
+
+            if(status != OperationStatus.SUCCESS)
+                throw new PersistenceFailureException("Put operation failed with status: " + status);
+            succeeded = true;
+
+        } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
+            logger.error("Error in put for store " + this.getName(), e);
+            throw new PersistenceFailureException(e);
+        } finally {
+            if(succeeded)
+                attemptCommit(transaction);
+            else
+                attemptAbort(transaction);
+            if(logger.isTraceEnabled()) {
+                logger.trace("Completed PUT (" + getName() + ") to key " + key + " (keyRef: "
+                             + System.identityHashCode(key) + " value " + value + " in "
+                             + (System.nanoTime() - startTimeNs) + " ns at "
+                             + System.currentTimeMillis());
+            }
+        }
+    }
+
+    @Override
     public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
 
         StoreUtils.assertValidKey(key);

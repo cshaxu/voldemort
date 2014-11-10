@@ -18,6 +18,7 @@ package voldemort.store.serialized;
 
 import java.util.List;
 
+import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
 import voldemort.server.storage.KeyLockHandle;
 import voldemort.store.StorageEngine;
@@ -194,4 +195,7 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
         throw new UnsupportedOperationException("releaseLock is not supported for "
                                                 + this.getClass().getName());
     }
+
+    @Override
+    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException {}
 }

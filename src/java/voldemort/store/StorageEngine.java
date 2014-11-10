@@ -18,6 +18,7 @@ package voldemort.store;
 
 import java.util.List;
 
+import voldemort.VoldemortException;
 import voldemort.server.storage.KeyLockHandle;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -176,4 +177,12 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      * @return true if the storage engine successfully returned to normal mode
      */
     public boolean endBatchModifications();
+
+    /**
+     * Associate the value with the key and version in this store
+     * 
+     * @param key The key to use
+     * @param value The value to store and its version.
+     */
+    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException;
 }

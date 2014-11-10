@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import voldemort.VoldemortException;
 import voldemort.server.storage.KeyLockHandle;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -138,4 +139,7 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
         throw new UnsupportedOperationException("releaseLock is not supported for "
                                                 + this.getClass().getName());
     }
+
+    @Override
+    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException {}
 }

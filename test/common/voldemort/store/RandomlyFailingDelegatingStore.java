@@ -183,4 +183,7 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
     public void releaseLock(KeyLockHandle<V> handle) {
         innerStorageEngine.releaseLock(handle);
     }
+
+    @Override
+    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException {}
 }
