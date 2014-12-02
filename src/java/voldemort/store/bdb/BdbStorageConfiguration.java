@@ -209,6 +209,42 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
+    public StorageEngine<ByteArray, byte[], byte[]> getStore2(StoreDefinition storeDef,
+                                                              RoutingStrategy strategy,
+                                                              Integer environmentId,
+                                                              Integer databaseId) {
+        synchronized(lock) {
+            try {
+                String storeName = storeDef.getName() + "-" + environmentId + "-" + databaseId;
+                Environment environment = getEnvironment2(storeDef, environmentId);
+                Database db = environment.openDatabase(null, storeName, databaseConfig);
+                BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
+                BdbStorageEngine engine = null;
+                if(voldemortConfig.getBdbPrefixKeysWithPartitionId()) {
+                    engine = new PartitionPrefixedBdbStorageEngine(storeName,
+                                                                   environment,
+                                                                   db,
+                                                                   runtimeConfig,
+                                                                   strategy);
+                } else {
+                    engine = new BdbStorageEngine(storeName, environment, db, runtimeConfig);
+                }
+                if(voldemortConfig.isJmxEnabled()) {
+                    // register the environment stats mbean
+                    JmxUtils.registerMbean(storeName, engine.getBdbEnvironmentStats());
+                    // when using a shared environment, there is no meaning to
+                    // aggregated stats
+                    if(useOneEnvPerStore) {
+                        aggBdbStats.trackEnvironment(engine.getBdbEnvironmentStats());
+                    }
+                }
+                return engine;
+            } catch(DatabaseException d) {
+                throw new StorageInitializationException(d);
+            }
+        }
+    }
+
     /**
      * Clean up the environment object for the given storage engine
      */
@@ -356,6 +392,64 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 environments.put(SHARED_ENV_KEY, environment);
                 return environment;
             }
+        }
+    }
+
+    public Environment getEnvironment2(StoreDefinition storeDef, Integer environmentId)
+            throws DatabaseException {
+        String environmentName = storeDef.getName() + "-" + environmentId;
+        synchronized(lock) {
+            if(environments.containsKey(environmentName)) {
+                return environments.get(environmentName);
+            }
+
+            // otherwise create a new environment
+            File bdbDir = new File(bdbMasterDir, environmentName);
+            createBdbDirIfNecessary(bdbDir);
+
+            // configure the BDB cache
+            if(storeDef.hasMemoryFootprint()) {
+                // make room for the reservation, by adjusting other stores
+                long reservedBytes = storeDef.getMemoryFootprintMB() * ByteUtils.BYTES_PER_MB;
+                long newReservedCacheSize = this.reservedCacheSize + reservedBytes;
+
+                // check that we leave a 'minimum' shared cache
+                if((voldemortConfig.getBdbCacheSize() - newReservedCacheSize) < voldemortConfig.getBdbMinimumSharedCache()) {
+                    throw new StorageInitializationException("Reservation of "
+                                                             + storeDef.getMemoryFootprintMB()
+                                                             + " MB for store "
+                                                             + environmentName
+                                                             + " violates minimum shared cache size of "
+                                                             + voldemortConfig.getBdbMinimumSharedCache());
+                }
+
+                this.reservedCacheSize = newReservedCacheSize;
+                adjustCacheSizes();
+                environmentConfig.setSharedCache(false);
+                environmentConfig.setCacheSize(reservedBytes);
+                logger.info("??? SharedCache = false");
+                logger.info("??? ReservedBytes = " + reservedBytes);
+            } else {
+                environmentConfig.setSharedCache(true);
+                environmentConfig.setCacheSize(voldemortConfig.getBdbCacheSize()
+                                               - this.reservedCacheSize);
+                logger.info("??? SharedCache = true");
+                logger.info("??? VoldemortConfig.BdbCacheSize = "
+                            + voldemortConfig.getBdbCacheSize());
+                logger.info("??? ReservedCacheSize = " + this.reservedCacheSize);
+            }
+
+            Environment environment = new Environment(bdbDir, environmentConfig);
+            logger.info("Creating environment for " + environmentName + ": ");
+            logEnvironmentConfig(environment.getConfig());
+            environments.put(environmentName, environment);
+
+            // save this up so we can adjust later if needed
+            if(!storeDef.hasMemoryFootprint()) {
+                this.unreservedStores.add(environment);
+            }
+
+            return environment;
         }
     }
 

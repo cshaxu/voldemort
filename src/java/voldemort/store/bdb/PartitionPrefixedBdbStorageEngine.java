@@ -112,9 +112,8 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     }
 
     @Override
-    public void put2(ByteArray key, Versioned<byte[]> value, byte[] transforms)
-            throws PersistenceFailureException {
-        super.put2(validateAndConstructKey(key), value, transforms);
+    public void put2(ByteArray key, byte[] value) throws PersistenceFailureException {
+        super.put2(key, value);
     }
 
     @Override

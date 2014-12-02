@@ -141,5 +141,5 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
     }
 
     @Override
-    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException {}
+    public void put2(K key, V value) throws VoldemortException {}
 }

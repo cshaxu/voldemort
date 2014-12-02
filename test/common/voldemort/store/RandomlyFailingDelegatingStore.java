@@ -185,5 +185,5 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
     }
 
     @Override
-    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException {}
+    public void put2(K key, V value) throws VoldemortException {}
 }

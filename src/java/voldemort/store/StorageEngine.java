@@ -184,5 +184,5 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      * @param key The key to use
      * @param value The value to store and its version.
      */
-    public void put2(K key, Versioned<V> value, T transforms) throws VoldemortException;
+    public void put2(K key, V value) throws VoldemortException;
 }
